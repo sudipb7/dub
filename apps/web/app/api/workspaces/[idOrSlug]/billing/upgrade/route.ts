@@ -23,7 +23,7 @@ export const POST = withWorkspace(async ({ req, workspace, session }) => {
       })
     : null;
 
-  // if the user already has a subscription, create billing portal to upgrade
+  // if the user has an active subscription, create billing portal to upgrade
   if (workspace.stripeId && subscription && subscription.data.length > 0) {
     const { url } = await stripe.billingPortal.sessions.create({
       customer: workspace.stripeId,
@@ -52,10 +52,11 @@ export const POST = withWorkspace(async ({ req, workspace, session }) => {
 
     return NextResponse.json({ url });
 
-    // if the user does not have a subscription, create a new checkout session
+    // if the user does not have an active subscription (new user or canceled subscription), create a new checkout session
   } else {
     const stripeSession = await stripe.checkout.sessions.create({
-      customer_email: session.user.email,
+      customer: workspace.stripeId || undefined, // Use existing stripeId if available
+      customer_email: workspace.stripeId ? undefined : session.user.email, // Only set email if no stripeId
       billing_address_collection: "required",
       success_url: `${APP_DOMAIN}/${workspace.slug}?${onboarding ? "onboarded" : "upgraded"}=true&plan=${plan}&period=${period}`,
       cancel_url: baseUrl,
